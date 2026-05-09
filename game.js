@@ -74,9 +74,11 @@ function init() {
   raycaster = new THREE.Raycaster();
   pointer = new THREE.Vector2();
   window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', () => setTimeout(onResize, 50));
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
 
   attachUI();
+  onResize(); // fit camera for current viewport (incl. iOS portrait)
   animate();
 }
 
@@ -1264,9 +1266,39 @@ function attachUI() {
 // LOOP
 // ============================================================
 function onResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const aspect = w / h;
+  camera.aspect = aspect;
+
+  // Fit camera so the whole board (with margin) is always visible.
+  // Half-extent we want covered both horizontally and vertically (board ~10
+  // wide + frame moldings).
+  const halfExtent = 5.6;
+
+  if (aspect >= 1.0) {
+    // Landscape: original framing
+    camera.fov = 42;
+    camera.position.set(0, 8.5, 9.5);
+  } else {
+    // Portrait: widen FOV and pull camera back along the same look angle
+    // so the board fits the narrow dimension.
+    camera.fov = Math.min(72, 42 + (1 - aspect) * 60);
+    const t = Math.tan((camera.fov * Math.PI) / 360);
+    const distForHeight = halfExtent / t;
+    const distForWidth  = halfExtent / (t * aspect);
+    const dist = Math.max(11, distForHeight, distForWidth) * 1.04;
+    const elev = Math.atan2(8.5, 9.5); // preserve landscape elevation angle
+    camera.position.set(0, dist * Math.sin(elev), dist * Math.cos(elev));
+
+    // Push fog out so the board doesn't get washed out at the new distance
+    scene.fog.near = dist + 4;
+    scene.fog.far  = dist + 22;
+  }
+
+  camera.lookAt(0, 0, 0);
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(w, h);
 }
 
 function animate() {
