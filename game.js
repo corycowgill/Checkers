@@ -741,11 +741,22 @@ function onPointerDown(e) {
 
   // Otherwise try to select a piece
   const piece = state.board[row] && state.board[row][col];
+
+  // Mid multi-jump: only the jumping piece is selectable
+  if (state.mustJumpFrom &&
+      (state.mustJumpFrom.row !== row || state.mustJumpFrom.col !== col)) {
+    flashRejectedSquare(row, col);
+    showToast('FINISH THE JUMP!', 'COMPLETE THE COMBO', 'combo');
+    hintSquares([state.mustJumpFrom], 0xffd23f);
+    return;
+  }
+
   if (piece && piece.color === state.current) {
-    // Mid multi-jump: only allow that exact piece
-    if (state.mustJumpFrom &&
-        (state.mustJumpFrom.row !== row || state.mustJumpFrom.col !== col)) return;
     selectPiece(row, col);
+  } else if (piece && piece.color !== state.current) {
+    // Clicked an opponent piece
+    flashRejectedSquare(row, col);
+    deselect();
   } else {
     deselect();
   }
@@ -764,14 +775,40 @@ function selectPiece(row, col) {
   else            validMoves = myMoves;
 
   if (validMoves.length === 0) {
-    // Don't actually select a piece that has no playable moves right now
+    // Explain WHY the click didn't do anything
     deselect();
+    flashRejectedSquare(row, col);
+
+    if (playerHasJump) {
+      // Forced-jump rule kicked in: piece has step moves but a jump is forced elsewhere
+      showToast('MUST JUMP!', `${state.current.toUpperCase()} HAS A CAPTURE`, 'combo');
+      const jumperPositions = uniquePositions(allPlayerMoves.map(m => ({ row: m.fromRow, col: m.fromCol })));
+      hintSquares(jumperPositions, 0xffd23f);
+    } else {
+      // Piece is genuinely blocked
+      showToast('BLOCKED!', 'TRY ANOTHER PIECE', '');
+      // Also hint pieces that DO have moves
+      const movers = uniquePositions(allPlayerMoves.map(m => ({ row: m.fromRow, col: m.fromCol })));
+      if (movers.length) hintSquares(movers, 0x00f0ff);
+    }
     return;
   }
 
   state.selected = { row, col };
   state.validMoves = validMoves;
   showSelectionHighlights();
+}
+
+function uniquePositions(positions) {
+  const seen = new Set();
+  const out = [];
+  for (const p of positions) {
+    const k = `${p.row},${p.col}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(p);
+  }
+  return out;
 }
 
 function deselect() {
@@ -799,6 +836,55 @@ function clearSquareHighlights() {
       sq.material.emissive.setHex(0x000000);
       sq.material.emissiveIntensity = 0;
     }
+  }
+}
+
+// Brief red flash on a square the user clicked but couldn't act on
+function flashRejectedSquare(row, col) {
+  const sq = squareMeshes.find(s => s.userData.row === row && s.userData.col === col);
+  if (!sq) return;
+  sq.material.emissive.setHex(0xff2d95);
+  sq.material.emissiveIntensity = 0.85;
+  setTimeout(() => {
+    // Don't clobber the selection highlight if a piece was selected here meanwhile
+    if (state.selected && state.selected.row === row && state.selected.col === col) return;
+    sq.material.emissive.setHex(0x000000);
+    sq.material.emissiveIntensity = 0;
+  }, 450);
+}
+
+// Transient gold/cyan rings on the legal pieces the player should consider
+function hintSquares(positions, hexColor) {
+  for (const p of positions) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.34, 0.46, 32),
+      new THREE.MeshBasicMaterial({
+        color: hexColor,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.95,
+      })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    const { x, z } = boardToWorld(p.row, p.col);
+    ring.position.set(x, SQUARE_TOP_Y + 0.014, z);
+    highlightGroup.add(ring);
+
+    const start = performance.now();
+    const dur = 1300;
+    (function fade() {
+      if (!ring.parent) return;
+      const t = (performance.now() - start) / dur;
+      if (t >= 1) {
+        highlightGroup.remove(ring);
+        ring.geometry.dispose();
+        ring.material.dispose();
+        return;
+      }
+      ring.material.opacity = 0.95 * (1 - t);
+      ring.scale.setScalar(1 + t * 0.5);
+      requestAnimationFrame(fade);
+    })();
   }
 }
 
@@ -929,6 +1015,13 @@ async function executeMove(move) {
   // AI move?
   if (state.mode === '1p' && state.current === BLACK) {
     setTimeout(aiTurn, 380);
+  } else {
+    // Human turn — pre-hint forced jumps so the player knows what's expected
+    const playerMoves = getAllMoves(state.board, state.current);
+    if (playerMoves.length && playerMoves.every(m => m.captures.length)) {
+      const jumpers = uniquePositions(playerMoves.map(m => ({ row: m.fromRow, col: m.fromCol })));
+      hintSquares(jumpers, 0xffd23f);
+    }
   }
 }
 
