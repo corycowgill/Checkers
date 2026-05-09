@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEON CHECKERS — The People's Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============================ MENU ============================ -->
+  <div id="menu" class="screen show">
+    <div class="grid-bg"></div>
+    <div class="sun"></div>
+    <div class="menu-inner">
+      <h1 class="title">
+        <span class="title-line top">NEON</span>
+        <span class="title-line bottom">CHECKERS</span>
+      </h1>
+      <p class="tagline">THE PEOPLE'S GAME &mdash; CHESS IS TOO FREAKIN' HARD</p>
+
+      <div class="menu-buttons">
+        <button class="neon-btn" data-mode="1p">
+          <span class="btn-line">1&nbsp;PLAYER</span>
+          <span class="btn-sub">VS. THE MACHINE</span>
+        </button>
+        <button class="neon-btn" data-mode="2p">
+          <span class="btn-line">2&nbsp;PLAYERS</span>
+          <span class="btn-sub">KITCHEN TABLE BRAWL</span>
+        </button>
+      </div>
+
+      <div class="difficulty-row hidden" id="difficulty-row">
+        <span class="diff-label">DIFFICULTY:</span>
+        <button class="diff-btn active" data-diff="easy">EASY</button>
+        <button class="diff-btn" data-diff="normal">NORMAL</button>
+        <button class="diff-btn" data-diff="hard">HARD</button>
+      </div>
+
+      <button id="start-game" class="neon-btn primary hidden">
+        <span class="btn-line">START&nbsp;GAME</span>
+      </button>
+
+      <p class="footer-note">&copy; 1985 &middot; INSERT COIN</p>
+    </div>
+  </div>
+
+  <!-- ============================ GAME ============================ -->
+  <div id="game" class="screen">
+    <!-- HUD -->
+    <header class="hud">
+      <div class="score-card red">
+        <div class="score-label">RED</div>
+        <div class="score-value" id="score-red">0</div>
+        <div class="score-pieces" id="pieces-red">12</div>
+      </div>
+
+      <div class="turn-banner" id="turn-banner">
+        <span id="turn-text">RED'S TURN</span>
+      </div>
+
+      <div class="score-card black">
+        <div class="score-label">BLACK</div>
+        <div class="score-value" id="score-black">0</div>
+        <div class="score-pieces" id="pieces-black">12</div>
+      </div>
+    </header>
+
+    <!-- 3D canvas mounts here -->
+    <div id="canvas-wrap"></div>
+
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+
+    <!-- In-game controls -->
+    <div class="game-controls">
+      <button id="btn-menu" class="ctrl-btn">MENU</button>
+      <button id="btn-restart" class="ctrl-btn">RESTART</button>
+    </div>
+  </div>
+
+  <!-- ============================ GAME OVER ============================ -->
+  <div id="gameover" class="screen">
+    <div class="grid-bg dim"></div>
+    <div class="gameover-inner">
+      <h2 id="gameover-title" class="title">GAME OVER</h2>
+      <p id="gameover-sub" class="tagline">RED WINS</p>
+      <button id="btn-rematch" class="neon-btn primary"><span class="btn-line">REMATCH</span></button>
+      <button id="btn-back-menu" class="neon-btn"><span class="btn-line">MAIN MENU</span></button>
+    </div>
+  </div>
+
+  <!-- Three.js via importmap -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
