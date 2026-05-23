@@ -18,8 +18,8 @@ const BLACK = 'black';
 const COLORS = {
   redPiece:        0xc9152a,
   redPieceAccent:  0xffd23f,
-  blackPiece:      0x1a0d2e,
-  blackPieceAccent:0x9a4dff,
+  blackPiece:      0x29df1c,    // neon green (team is visually green; logic key stays "black")
+  blackPieceAccent:0xff2d95,    // hot pink decorative accent
   woodLight:       0xe7c189,
   woodDark:        0x4a2418,
   frame:           0x3a1a0c,
@@ -28,6 +28,10 @@ const COLORS = {
   selected:        0xffd23f,
   jump:            0xff2d95,
 };
+
+function teamLabel(color) {
+  return color === RED ? 'RED' : 'GREEN';
+}
 
 // ------------------------------------------------------------
 // Game state
@@ -107,11 +111,11 @@ function setupSceneBase() {
   camera.position.set(0, 8.5, 9.5);
   camera.lookAt(0, 0, 0);
 
-  // Warm ambient (kitchen feel)
-  scene.add(new THREE.AmbientLight(0xffe7c4, 0.45));
+  // Warm ambient (kitchen feel) — slightly dimmed to let neon emissives glow
+  scene.add(new THREE.AmbientLight(0xffe7c4, 0.32));
 
   // Hanging pendant lamp
-  const pendant = new THREE.PointLight(0xffd29a, 1.8, 28, 1.4);
+  const pendant = new THREE.PointLight(0xffd29a, 1.3, 28, 1.4);
   pendant.position.set(0, 7, 0);
   pendant.castShadow = true;
   pendant.shadow.mapSize.set(1024, 1024);
@@ -120,13 +124,18 @@ function setupSceneBase() {
   scene.add(pendant);
 
   // Subtle violet rim from the synthwave room
-  const rim = new THREE.DirectionalLight(0xa64dff, 0.4);
+  const rim = new THREE.DirectionalLight(0xa64dff, 0.65);
   rim.position.set(-6, 5, -6);
   scene.add(rim);
 
-  const fill = new THREE.DirectionalLight(0x00f0ff, 0.18);
+  const fill = new THREE.DirectionalLight(0x00f0ff, 0.4);
   fill.position.set(8, 4, 8);
   scene.add(fill);
+
+  // Pink rim from the opposite side reinforces the synthwave palette
+  const pinkRim = new THREE.DirectionalLight(0xff2d95, 0.3);
+  pinkRim.position.set(6, 4, -6);
+  scene.add(pinkRim);
 
   // Bulb visualization
   const bulb = new THREE.Mesh(
@@ -197,12 +206,62 @@ function makeWoodTexture(baseHex, darkHex, scale = 1) {
   return tex;
 }
 
+function makeNeonSquareTexture(baseHex, neonHex) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+
+  // Solid dark base
+  ctx.fillStyle = baseHex;
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Subtle inner radial bloom from center
+  const grd = ctx.createRadialGradient(128, 128, 20, 128, 128, 170);
+  grd.addColorStop(0, neonHex + '22');
+  grd.addColorStop(1, neonHex + '00');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Corner accent ticks (Tron-style)
+  ctx.strokeStyle = neonHex;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(22, 22); ctx.lineTo(56, 22); ctx.moveTo(22, 22); ctx.lineTo(22, 56);
+  ctx.moveTo(234, 22); ctx.lineTo(200, 22); ctx.moveTo(234, 22); ctx.lineTo(234, 56);
+  ctx.moveTo(22, 234); ctx.lineTo(56, 234); ctx.moveTo(22, 234); ctx.lineTo(22, 200);
+  ctx.moveTo(234, 234); ctx.lineTo(200, 234); ctx.moveTo(234, 234); ctx.lineTo(234, 200);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Glowing outline border (multi-pass for bloom accumulation)
+  ctx.shadowColor = neonHex;
+  ctx.strokeStyle = neonHex;
+
+  ctx.shadowBlur = 32;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(10, 10, 236, 236);
+
+  ctx.shadowBlur = 16;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(10, 10, 236, 236);
+
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(10, 10, 236, 236);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
 function makePieceFaceTexture(color) {
   // color: 'red' or 'black' (drives palette)
   const isRed = color === RED;
-  const base = isRed ? '#9c0e1f' : '#15091f';
-  const accent = isRed ? '#ffd23f' : '#a64dff';
-  const accentSoft = isRed ? '#ff7a7a' : '#5e2db2';
+  const base = isRed ? '#9c0e1f' : '#0a3a0a';
+  const accent = isRed ? '#ffd23f' : '#ff2d95';
+  const accentSoft = isRed ? '#ff7a7a' : '#ff7ac8';
   const c = document.createElement('canvas');
   c.width = c.height = 512;
   const ctx = c.getContext('2d');
@@ -265,8 +324,8 @@ function makePieceFaceTexture(color) {
 
 function makeKingFaceTexture(color) {
   const isRed = color === RED;
-  const base = isRed ? '#9c0e1f' : '#15091f';
-  const accent = isRed ? '#ffd23f' : '#a64dff';
+  const base = isRed ? '#9c0e1f' : '#0a3a0a';
+  const accent = isRed ? '#ffd23f' : '#ff2d95';
   const c = document.createElement('canvas');
   c.width = c.height = 512;
   const ctx = c.getContext('2d');
@@ -397,63 +456,77 @@ function buildTable() {
 }
 
 function buildBoard() {
-  const lightTex = makeWoodTexture('#e7c189', '#7a4a1c', 1);
-  const darkTex  = makeWoodTexture('#4a2418', '#1a0902', 1);
-  const frameTex = makeWoodTexture('#3a1a0c', '#100400', 1);
+  const darkSqTex  = makeNeonSquareTexture('#0a0420', '#00f0ff'); // cyan-trimmed dark squares
+  const lightSqTex = makeNeonSquareTexture('#1a0838', '#ff2d95'); // pink-trimmed light squares
 
-  // ---- Frame base (large) ----
+  // ---- Frame base (large): dark synthwave purple slab ----
   const FRAME_OUTER = 9.6;
   const FRAME_INNER = 8.0;
   const base = new THREE.Mesh(
     new THREE.BoxGeometry(FRAME_OUTER, BOARD_THICKNESS, FRAME_OUTER),
-    new THREE.MeshStandardMaterial({ map: frameTex, roughness: 0.55 })
+    new THREE.MeshStandardMaterial({
+      color: 0x0a0420,
+      roughness: 0.4,
+      metalness: 0.4,
+      emissive: 0x1a0533,
+      emissiveIntensity: 0.45,
+    })
   );
   base.position.y = 0;
   base.receiveShadow = true;
   base.castShadow = true;
   scene.add(base);
 
-  // ---- Inlaid playing area (slightly recessed with squares on top) ----
-  // We give the board's top surface 64 alternating squares as separate meshes
+  // ---- Inlaid playing area: 64 glowing tiles ----
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
       const isDark = (row + col) % 2 === 0;
+      const baseEmissiveHex = isDark ? 0x00f0ff : 0xff2d95;
+      const baseEmissiveIntensity = 0.18;
       const mat = new THREE.MeshStandardMaterial({
-        map: isDark ? darkTex : lightTex,
-        roughness: isDark ? 0.45 : 0.55,
-        metalness: 0.05,
+        map: isDark ? darkSqTex : lightSqTex,
+        roughness: 0.4,
+        metalness: 0.15,
+        emissive: new THREE.Color(baseEmissiveHex),
+        emissiveIntensity: baseEmissiveIntensity,
       });
       const sq = new THREE.Mesh(new THREE.BoxGeometry(SQUARE, 0.06, SQUARE), mat);
       const { x, z } = boardToWorld(row, col);
-      sq.position.set(x, BOARD_TOP_Y + 0.03, z); // top of square at SQUARE_TOP_Y
+      sq.position.set(x, BOARD_TOP_Y + 0.03, z);
       sq.receiveShadow = true;
-      sq.userData = { type: 'square', row, col, isDark, baseEmissive: 0x000000 };
-      mat.emissive = new THREE.Color(0x000000);
-      mat.emissiveIntensity = 0.0;
+      sq.userData = {
+        type: 'square', row, col, isDark,
+        baseEmissiveHex, baseEmissiveIntensity,
+      };
       squareGroup.add(sq);
       squareMeshes.push(sq);
     }
   }
 
-  // ---- Ridges around the edge of the frame ----
-  // Layered molding: concentric raised lips (in HALF-widths from board center).
   buildFrameMoldings(FRAME_OUTER / 2, FRAME_INNER / 2);
 }
 
 function buildFrameMoldings(outerHalf, innerHalf) {
-  const matBase = new THREE.MeshStandardMaterial({ color: 0x3a1a0c, roughness: 0.5 });
-  const matAccent = new THREE.MeshStandardMaterial({
-    color: 0xffd23f, emissive: 0x442200, emissiveIntensity: 0.35,
-    roughness: 0.35, metalness: 0.55,
+  const matBase = new THREE.MeshStandardMaterial({
+    color: 0x0a0420, roughness: 0.4, metalness: 0.4,
+    emissive: 0x1a0533, emissiveIntensity: 0.5,
+  });
+  const matAccentPink = new THREE.MeshStandardMaterial({
+    color: 0xff2d95, emissive: 0xff2d95, emissiveIntensity: 1.1,
+    roughness: 0.25, metalness: 0.35,
+  });
+  const matAccentCyan = new THREE.MeshStandardMaterial({
+    color: 0x00f0ff, emissive: 0x00f0ff, emissiveIntensity: 1.1,
+    roughness: 0.25, metalness: 0.35,
   });
 
   // Each ridge is a rectangular ring spanning [innerHalf..outerHalf] half-widths.
   const ridges = [
-    { o: outerHalf,        i: outerHalf - 0.10, h: 0.20, y: BOARD_TOP_Y + 0.10, m: matBase   }, // tallest outer lip
-    { o: outerHalf - 0.10, i: outerHalf - 0.18, h: 0.10, y: BOARD_TOP_Y + 0.05, m: matAccent }, // gold pinstripe
-    { o: outerHalf - 0.18, i: outerHalf - 0.32, h: 0.16, y: BOARD_TOP_Y + 0.08, m: matBase   }, // mid rail
-    { o: outerHalf - 0.32, i: outerHalf - 0.38, h: 0.06, y: BOARD_TOP_Y + 0.03, m: matAccent }, // secondary gold
-    { o: outerHalf - 0.38, i: innerHalf,        h: 0.12, y: BOARD_TOP_Y + 0.06, m: matBase   }, // inner shoulder
+    { o: outerHalf,        i: outerHalf - 0.10, h: 0.20, y: BOARD_TOP_Y + 0.10, m: matBase        }, // tallest outer lip
+    { o: outerHalf - 0.10, i: outerHalf - 0.18, h: 0.10, y: BOARD_TOP_Y + 0.05, m: matAccentPink  }, // pink pinstripe
+    { o: outerHalf - 0.18, i: outerHalf - 0.32, h: 0.16, y: BOARD_TOP_Y + 0.08, m: matBase        }, // mid rail
+    { o: outerHalf - 0.32, i: outerHalf - 0.38, h: 0.06, y: BOARD_TOP_Y + 0.03, m: matAccentCyan  }, // cyan pinstripe
+    { o: outerHalf - 0.38, i: innerHalf,        h: 0.12, y: BOARD_TOP_Y + 0.06, m: matBase        }, // inner shoulder
   ];
 
   for (const r of ridges) {
@@ -477,8 +550,8 @@ function buildFrameMoldings(outerHalf, innerHalf) {
 
   // Decorative corner caps with neon star
   const cornerMat = new THREE.MeshStandardMaterial({
-    color: 0xffd23f, roughness: 0.3, metalness: 0.65,
-    emissive: 0x553300, emissiveIntensity: 0.5,
+    color: 0x00f0ff, roughness: 0.25, metalness: 0.7,
+    emissive: 0x00f0ff, emissiveIntensity: 0.9,
   });
   const corners = [[-1,-1],[-1,1],[1,-1],[1,1]];
   const cornerOffset = outerHalf - 0.05;
@@ -530,10 +603,10 @@ function buildPieceMesh(color, isKing) {
 
   const bodyMat = new THREE.MeshStandardMaterial({
     color: color === RED ? COLORS.redPiece : COLORS.blackPiece,
-    roughness: 0.45,
+    roughness: 0.4,
     metalness: 0.25,
-    emissive: color === RED ? 0x300405 : 0x080414,
-    emissiveIntensity: 0.25,
+    emissive: color === RED ? 0x300405 : 0x0a3a0a,
+    emissiveIntensity: color === RED ? 0.25 : 0.55,
   });
 
   const body = new THREE.Mesh(new THREE.LatheGeometry(points, 48), bodyMat);
@@ -566,9 +639,9 @@ function buildPieceMesh(color, isKing) {
     const crown = new THREE.Mesh(
       new THREE.CylinderGeometry(0.30, 0.34, 0.12, 36),
       new THREE.MeshStandardMaterial({
-        color: color === RED ? 0xffd23f : 0xa64dff,
-        emissive: color === RED ? 0x553300 : 0x2a1066,
-        emissiveIntensity: 0.6,
+        color: color === RED ? 0xffd23f : 0xff2d95,
+        emissive: color === RED ? 0x553300 : 0x550f33,
+        emissiveIntensity: 0.8,
         metalness: 0.7,
         roughness: 0.25,
       })
@@ -781,7 +854,7 @@ function selectPiece(row, col) {
 
     if (playerHasJump) {
       // Forced-jump rule kicked in: piece has step moves but a jump is forced elsewhere
-      showToast('MUST JUMP!', `${state.current.toUpperCase()} HAS A CAPTURE`, 'combo');
+      showToast('MUST JUMP!', `${teamLabel(state.current)} HAS A CAPTURE`, 'combo');
       const jumperPositions = uniquePositions(allPlayerMoves.map(m => ({ row: m.fromRow, col: m.fromCol })));
       hintSquares(jumperPositions, 0xffd23f);
     } else {
@@ -832,10 +905,9 @@ function clearValidMoveMarkers() {
 
 function clearSquareHighlights() {
   for (const sq of squareMeshes) {
-    if (sq.material.emissiveIntensity) {
-      sq.material.emissive.setHex(0x000000);
-      sq.material.emissiveIntensity = 0;
-    }
+    const u = sq.userData;
+    sq.material.emissive.setHex(u.baseEmissiveHex);
+    sq.material.emissiveIntensity = u.baseEmissiveIntensity;
   }
 }
 
@@ -843,13 +915,14 @@ function clearSquareHighlights() {
 function flashRejectedSquare(row, col) {
   const sq = squareMeshes.find(s => s.userData.row === row && s.userData.col === col);
   if (!sq) return;
-  sq.material.emissive.setHex(0xff2d95);
-  sq.material.emissiveIntensity = 0.85;
+  sq.material.emissive.setHex(0xff4040);
+  sq.material.emissiveIntensity = 0.95;
   setTimeout(() => {
     // Don't clobber the selection highlight if a piece was selected here meanwhile
     if (state.selected && state.selected.row === row && state.selected.col === col) return;
-    sq.material.emissive.setHex(0x000000);
-    sq.material.emissiveIntensity = 0;
+    const u = sq.userData;
+    sq.material.emissive.setHex(u.baseEmissiveHex);
+    sq.material.emissiveIntensity = u.baseEmissiveIntensity;
   }, 450);
 }
 
@@ -977,7 +1050,7 @@ async function executeMove(move) {
     piece.mesh = km;
     pieceGroup.add(km);
     await kingPulse(km);
-    showToast('👑 KING ME! 👑', `${piece.color.toUpperCase()} CROWNED`, 'king');
+    showToast('👑 KING ME! 👑', `${teamLabel(piece.color)} CROWNED`, 'king');
   }
 
   updateHUD();
@@ -1245,15 +1318,16 @@ function updateHUD() {
   document.getElementById('pieces-red').textContent = `${state.pieceCount.red} LEFT`;
   document.getElementById('pieces-black').textContent = `${state.pieceCount.black} LEFT`;
   const turnEl = document.getElementById('turn-text');
-  turnEl.textContent = state.current === RED ? "RED'S TURN" : "BLACK'S TURN";
+  turnEl.textContent = `${teamLabel(state.current)}'S TURN`;
   const banner = document.getElementById('turn-banner');
-  banner.style.borderColor = state.current === RED ? '#ff4040' : '#a64dff';
-  banner.style.color = state.current === RED ? '#ff4040' : '#a64dff';
-  banner.style.textShadow = `0 0 8px ${state.current === RED ? '#ff4040' : '#a64dff'}`;
+  const tcol = state.current === RED ? '#ff4040' : '#29df1c';
+  banner.style.borderColor = tcol;
+  banner.style.color = tcol;
+  banner.style.textShadow = `0 0 8px ${tcol}`;
 }
 
 function showJumpToast() {
-  const player = state.current.toUpperCase();
+  const player = teamLabel(state.current);
   let msg, sub;
   if (state.comboCount >= 3) {
     msg = '🔥 TRIPLE JUMP! 🔥';
@@ -1301,7 +1375,7 @@ function showGameOver(winner) {
   const go = document.getElementById('gameover');
   go.classList.add('show');
   const sub = document.getElementById('gameover-sub');
-  sub.textContent = `${winner.toUpperCase()} WINS  -  ${state.scores[winner]} JUMPS`;
+  sub.textContent = `${teamLabel(winner)} WINS  -  ${state.scores[winner]} JUMPS`;
   document.getElementById('gameover-title').innerHTML = `<span class="title-line top">GAME</span><span class="title-line bottom">OVER</span>`;
 }
 

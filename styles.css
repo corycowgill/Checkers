@@ -8,6 +8,7 @@
   --purple: #a64dff;
   --yellow: #ffd23f;
   --red: #ff4040;
+  --green: #29df1c;
   --black: #1a0d2e;
   --bg: #0a0420;
   --bg2: #1d0b3a;
@@ -260,8 +261,8 @@ html, body {
   box-shadow: 0 0 14px var(--red), inset 0 0 8px rgba(255,64,64,0.25);
 }
 .score-card.black {
-  border-color: var(--purple);
-  box-shadow: 0 0 14px var(--purple), inset 0 0 8px rgba(166,77,255,0.25);
+  border-color: var(--green);
+  box-shadow: 0 0 14px var(--green), inset 0 0 8px rgba(41,223,28,0.25);
 }
 .score-label {
   font-family: 'Press Start 2P', monospace;
@@ -270,7 +271,7 @@ html, body {
   margin-bottom: 4px;
 }
 .score-card.red .score-label { color: var(--red); text-shadow: 0 0 6px var(--red); }
-.score-card.black .score-label { color: var(--purple); text-shadow: 0 0 6px var(--purple); }
+.score-card.black .score-label { color: var(--green); text-shadow: 0 0 6px var(--green); }
 .score-value {
   font-family: 'Orbitron', sans-serif;
   font-weight: 900;
