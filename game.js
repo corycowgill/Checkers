@@ -259,7 +259,7 @@ function makeNeonSquareTexture(baseHex, neonHex) {
 function makePieceFaceTexture(color) {
   // color: 'red' or 'black' (drives palette)
   const isRed = color === RED;
-  const base = isRed ? '#9c0e1f' : '#0a3a0a';
+  const base = isRed ? '#9c0e1f' : '#1ea822';
   const accent = isRed ? '#ffd23f' : '#ff2d95';
   const accentSoft = isRed ? '#ff7a7a' : '#ff7ac8';
   const c = document.createElement('canvas');
@@ -324,7 +324,7 @@ function makePieceFaceTexture(color) {
 
 function makeKingFaceTexture(color) {
   const isRed = color === RED;
-  const base = isRed ? '#9c0e1f' : '#0a3a0a';
+  const base = isRed ? '#9c0e1f' : '#1ea822';
   const accent = isRed ? '#ffd23f' : '#ff2d95';
   const c = document.createElement('canvas');
   c.width = c.height = 512;
@@ -605,8 +605,8 @@ function buildPieceMesh(color, isKing) {
     color: color === RED ? COLORS.redPiece : COLORS.blackPiece,
     roughness: 0.4,
     metalness: 0.25,
-    emissive: color === RED ? 0x300405 : 0x0a3a0a,
-    emissiveIntensity: color === RED ? 0.25 : 0.55,
+    emissive: color === RED ? 0x300405 : 0x1a8e1a,
+    emissiveIntensity: color === RED ? 0.25 : 0.85,
   });
 
   const body = new THREE.Mesh(new THREE.LatheGeometry(points, 48), bodyMat);
