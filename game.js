@@ -206,53 +206,60 @@ function makeWoodTexture(baseHex, darkHex, scale = 1) {
   return tex;
 }
 
-function makeNeonSquareTexture(baseHex, neonHex) {
+function makeNeonSquareTexture(bodyHex, neonHex) {
+  // bodyHex: tile fill (saturated neon mid-color)
+  // neonHex: brighter outline / accent color
   const c = document.createElement('canvas');
-  c.width = c.height = 256;
+  c.width = c.height = 512;
   const ctx = c.getContext('2d');
 
-  // Solid dark base
-  ctx.fillStyle = baseHex;
-  ctx.fillRect(0, 0, 256, 256);
+  // Vibrant solid body
+  ctx.fillStyle = bodyHex;
+  ctx.fillRect(0, 0, 512, 512);
 
-  // Subtle inner radial bloom from center
-  const grd = ctx.createRadialGradient(128, 128, 20, 128, 128, 170);
-  grd.addColorStop(0, neonHex + '22');
-  grd.addColorStop(1, neonHex + '00');
+  // Subtle radial vignette for depth
+  const grd = ctx.createRadialGradient(256, 256, 60, 256, 256, 340);
+  grd.addColorStop(0, 'rgba(0,0,0,0)');
+  grd.addColorStop(1, 'rgba(0,0,0,0.30)');
   ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, 256, 256);
+  ctx.fillRect(0, 0, 512, 512);
 
-  // Corner accent ticks (Tron-style)
-  ctx.strokeStyle = neonHex;
-  ctx.globalAlpha = 0.55;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(22, 22); ctx.lineTo(56, 22); ctx.moveTo(22, 22); ctx.lineTo(22, 56);
-  ctx.moveTo(234, 22); ctx.lineTo(200, 22); ctx.moveTo(234, 22); ctx.lineTo(234, 56);
-  ctx.moveTo(22, 234); ctx.lineTo(56, 234); ctx.moveTo(22, 234); ctx.lineTo(22, 200);
-  ctx.moveTo(234, 234); ctx.lineTo(200, 234); ctx.moveTo(234, 234); ctx.lineTo(234, 200);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  // Thin inner dark inset for a "tile" look
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(28, 28, 456, 456);
 
-  // Glowing outline border (multi-pass for bloom accumulation)
+  // Glowing bright outer border (multi-pass for bloom)
   ctx.shadowColor = neonHex;
   ctx.strokeStyle = neonHex;
 
-  ctx.shadowBlur = 32;
-  ctx.lineWidth = 3;
-  ctx.strokeRect(10, 10, 236, 236);
+  ctx.shadowBlur = 56;
+  ctx.lineWidth = 6;
+  ctx.strokeRect(16, 16, 480, 480);
 
-  ctx.shadowBlur = 16;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(10, 10, 236, 236);
+  ctx.shadowBlur = 24;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(16, 16, 480, 480);
 
   ctx.shadowBlur = 0;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(10, 10, 236, 236);
+  ctx.lineWidth = 3;
+  ctx.strokeRect(16, 16, 480, 480);
+
+  // Tron corner ticks
+  ctx.strokeStyle = neonHex;
+  ctx.lineWidth = 3;
+  ctx.shadowColor = neonHex;
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.moveTo(46, 46);   ctx.lineTo(110, 46);  ctx.moveTo(46, 46);   ctx.lineTo(46, 110);
+  ctx.moveTo(466, 46);  ctx.lineTo(402, 46);  ctx.moveTo(466, 46);  ctx.lineTo(466, 110);
+  ctx.moveTo(46, 466);  ctx.lineTo(110, 466); ctx.moveTo(46, 466);  ctx.lineTo(46, 402);
+  ctx.moveTo(466, 466); ctx.lineTo(402, 466); ctx.moveTo(466, 466); ctx.lineTo(466, 402);
+  ctx.stroke();
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   return tex;
 }
 
@@ -456,8 +463,8 @@ function buildTable() {
 }
 
 function buildBoard() {
-  const darkSqTex  = makeNeonSquareTexture('#0a0420', '#00f0ff'); // cyan-trimmed dark squares
-  const lightSqTex = makeNeonSquareTexture('#1a0838', '#ff2d95'); // pink-trimmed light squares
+  const darkSqTex  = makeNeonSquareTexture('#0099b8', '#00f0ff'); // vibrant cyan tiles
+  const lightSqTex = makeNeonSquareTexture('#b81a6e', '#ff2d95'); // vibrant magenta tiles
 
   // ---- Frame base (large): dark synthwave purple slab ----
   const FRAME_OUTER = 9.6;
@@ -482,11 +489,11 @@ function buildBoard() {
     for (let col = 0; col < 8; col++) {
       const isDark = (row + col) % 2 === 0;
       const baseEmissiveHex = isDark ? 0x00f0ff : 0xff2d95;
-      const baseEmissiveIntensity = 0.18;
+      const baseEmissiveIntensity = 0.55;
       const mat = new THREE.MeshStandardMaterial({
         map: isDark ? darkSqTex : lightSqTex,
-        roughness: 0.4,
-        metalness: 0.15,
+        roughness: 0.35,
+        metalness: 0.1,
         emissive: new THREE.Color(baseEmissiveHex),
         emissiveIntensity: baseEmissiveIntensity,
       });
