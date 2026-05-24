@@ -3,6 +3,10 @@
 // Three.js + retro 80s synthwave UI on a kitchen table
 // ============================================================
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 // ------------------------------------------------------------
 // Constants
@@ -54,11 +58,12 @@ const state = {
 // ------------------------------------------------------------
 // Three.js essentials
 // ------------------------------------------------------------
-let scene, camera, renderer;
+let scene, camera, renderer, composer;
 let raycaster, pointer;
 let pieceGroup, highlightGroup, squareGroup;
 const squareMeshes = [];      // 64 square meshes for raycasting
 const validMoveMarkers = [];  // ring meshes for valid moves
+const animatedDecor = [];     // background ornaments to rotate each frame
 
 // ============================================================
 // BOOT
@@ -74,6 +79,7 @@ function init() {
   highlightGroup = new THREE.Group();
   scene.add(squareGroup, highlightGroup, pieceGroup);
   buildBoard();
+  setupComposer();
 
   raycaster = new THREE.Raycaster();
   pointer = new THREE.Vector2();
@@ -84,6 +90,21 @@ function init() {
   attachUI();
   onResize(); // fit camera for current viewport (incl. iOS portrait)
   animate();
+}
+
+function setupComposer() {
+  composer = new EffectComposer(renderer);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.55,  // strength
+    0.6,   // radius
+    0.55   // threshold (only the brightest pixels contribute to bloom)
+  );
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
 }
 
 // ============================================================
@@ -104,8 +125,9 @@ function setupRenderer() {
 
 function setupSceneBase() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0d0420);
-  scene.fog = new THREE.Fog(0x0d0420, 14, 32);
+  scene.background = makeSunsetBackground();
+  // Fog tinted with the sunset's purple-magenta so the table edges blend in
+  scene.fog = new THREE.Fog(0x3a0e5e, 18, 42);
 
   camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.position.set(0, 8.5, 9.5);
@@ -203,6 +225,84 @@ function makeWoodTexture(baseHex, darkHex, scale = 1) {
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(scale, scale);
   tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeSunsetBackground() {
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 512;
+  const ctx = c.getContext('2d');
+  const grd = ctx.createLinearGradient(0, 0, 0, 512);
+  grd.addColorStop(0.00, '#0d0420');
+  grd.addColorStop(0.25, '#1a0533');
+  grd.addColorStop(0.45, '#560f6e');
+  grd.addColorStop(0.62, '#ff2d95');
+  grd.addColorStop(0.74, '#ff7a3f');
+  grd.addColorStop(0.82, '#ffd23f');
+  grd.addColorStop(0.86, '#1a0533');
+  grd.addColorStop(1.00, '#05010f');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, 4, 512);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeSunTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+
+  // Radial sun gradient
+  const grd = ctx.createRadialGradient(256, 256, 20, 256, 256, 248);
+  grd.addColorStop(0.00, '#fff5b8');
+  grd.addColorStop(0.20, '#ffd23f');
+  grd.addColorStop(0.55, '#ff4040');
+  grd.addColorStop(0.85, '#ff2d95');
+  grd.addColorStop(1.00, 'rgba(255, 45, 149, 0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(256, 256, 248, 0, Math.PI * 2); ctx.fill();
+
+  // Retro horizontal slats across the bottom half (synthwave sun)
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let y = 296; y < 512; y += 28) {
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, y, 512, 14);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeGridFloorTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#08021a';
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Bigger pink grid, then finer cyan grid on top
+  const drawGrid = (color, blur, lineWidth, spacing) => {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = blur;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    for (let i = 0; i <= 512; i += spacing) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+    }
+  };
+  drawGrid('#ff2d95', 16, 3, 128);
+  drawGrid('#00f0ff', 8, 1.5, 32);
+  ctx.shadowBlur = 0;
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(6, 6);
   return tex;
 }
 
@@ -404,6 +504,95 @@ function makeKingFaceTexture(color) {
   return tex;
 }
 
+function buildCrown(color) {
+  const grp = new THREE.Group();
+  const isRed = color === RED;
+  const metalMat = new THREE.MeshStandardMaterial({
+    color: isRed ? 0xffd23f : 0xff2d95,
+    emissive: isRed ? 0x553300 : 0x550f33,
+    emissiveIntensity: 1.0,
+    metalness: 0.85,
+    roughness: 0.18,
+  });
+  const jewelHex = isRed ? 0xff2d95 : 0x00f0ff;
+  const jewelMat = new THREE.MeshStandardMaterial({
+    color: jewelHex,
+    emissive: jewelHex,
+    emissiveIntensity: 1.2,
+    metalness: 0.4,
+    roughness: 0.2,
+  });
+  const topJewelHex = isRed ? 0x00f0ff : 0xffd23f;
+  const topJewelMat = new THREE.MeshStandardMaterial({
+    color: topJewelHex,
+    emissive: topJewelHex,
+    emissiveIntensity: 1.4,
+    metalness: 0.4,
+    roughness: 0.2,
+  });
+
+  // Base ring (torus laid flat)
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.28, 0.04, 12, 32),
+    metalMat
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.03;
+  ring.castShadow = true;
+  grp.add(ring);
+
+  // Short cylindrical band under the spikes
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.28, 0.30, 0.06, 28),
+    metalMat
+  );
+  band.position.y = 0.03;
+  band.castShadow = true;
+  grp.add(band);
+
+  // 5 cone spikes around the rim, with small jewels between them
+  const spikes = 5;
+  for (let i = 0; i < spikes; i++) {
+    const angle = (i / spikes) * Math.PI * 2;
+    const r = 0.24;
+    const spike = new THREE.Mesh(
+      new THREE.ConeGeometry(0.055, 0.16, 10),
+      metalMat
+    );
+    spike.position.set(Math.cos(angle) * r, 0.14, Math.sin(angle) * r);
+    spike.castShadow = true;
+    grp.add(spike);
+
+    // Jewel between this spike and the next
+    const ja = angle + Math.PI / spikes;
+    const jewel = new THREE.Mesh(
+      new THREE.SphereGeometry(0.032, 12, 12),
+      jewelMat
+    );
+    jewel.position.set(Math.cos(ja) * (r + 0.02), 0.08, Math.sin(ja) * (r + 0.02));
+    grp.add(jewel);
+  }
+
+  // Center taller spike
+  const center = new THREE.Mesh(
+    new THREE.ConeGeometry(0.07, 0.22, 12),
+    metalMat
+  );
+  center.position.y = 0.18;
+  center.castShadow = true;
+  grp.add(center);
+
+  // Top jewel orb
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.055, 16, 16),
+    topJewelMat
+  );
+  orb.position.y = 0.33;
+  grp.add(orb);
+
+  return grp;
+}
+
 function drawStar(ctx, cx, cy, points, outer, inner, fill) {
   ctx.fillStyle = fill;
   ctx.beginPath();
@@ -451,15 +640,30 @@ function buildTable() {
   leg.castShadow = true;
   scene.add(leg);
 
-  // Floor (for grounding)
+  // Floor: glowing synthwave grid that recedes into the horizon
   const floor = new THREE.Mesh(
-    new THREE.CircleGeometry(40, 48),
-    new THREE.MeshStandardMaterial({ color: 0x140a25, roughness: 0.95 })
+    new THREE.CircleGeometry(60, 64),
+    new THREE.MeshStandardMaterial({
+      color: 0x0a0420,
+      map: makeGridFloorTexture(),
+      emissive: 0xff2d95,
+      emissiveIntensity: 0.15,
+      roughness: 0.6,
+      metalness: 0.2,
+    })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -4.5;
   floor.receiveShadow = true;
   scene.add(floor);
+
+  // Retro synthwave sun, far behind the table
+  const sun = new THREE.Mesh(
+    new THREE.PlaneGeometry(14, 14),
+    new THREE.MeshBasicMaterial({ map: makeSunTexture(), transparent: true, fog: false, depthWrite: false })
+  );
+  sun.position.set(0, 4, -28);
+  scene.add(sun);
 }
 
 function buildBoard() {
@@ -573,11 +777,13 @@ function buildFrameMoldings(outerHalf, innerHalf) {
     const star = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.13),
       new THREE.MeshStandardMaterial({
-        color: 0xff2d95, emissive: 0xff2d95, emissiveIntensity: 0.8, metalness: 0.5,
+        color: 0xff2d95, emissive: 0xff2d95, emissiveIntensity: 1.0, metalness: 0.5,
       })
     );
     star.position.set(sx * cornerOffset, BOARD_TOP_Y + 0.40, sz * cornerOffset);
     star.rotation.y = Math.PI / 4;
+    star.userData.spin = 0.012;
+    animatedDecor.push(star);
     scene.add(star);
   }
 }
@@ -641,30 +847,11 @@ function buildPieceMesh(color, isKing) {
   bottomFace.position.y = 0.001;            // sits inside the open bottom of the lathe
   group.add(bottomFace);
 
-  // ---- King: extra crown puck ----
+  // ---- King: 3D crown ----
   if (isKing) {
-    const crown = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.30, 0.34, 0.12, 36),
-      new THREE.MeshStandardMaterial({
-        color: color === RED ? 0xffd23f : 0xff2d95,
-        emissive: color === RED ? 0x553300 : 0x550f33,
-        emissiveIntensity: 0.8,
-        metalness: 0.7,
-        roughness: 0.25,
-      })
-    );
-    crown.position.y = 0.26;
-    crown.castShadow = true;
+    const crown = buildCrown(color);
+    crown.position.y = 0.21;
     group.add(crown);
-    // Spike on top
-    const spike = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.10),
-      new THREE.MeshStandardMaterial({
-        color: 0xff2d95, emissive: 0xff2d95, emissiveIntensity: 0.8, metalness: 0.6
-      })
-    );
-    spike.position.y = 0.40;
-    group.add(spike);
   }
 
   group.userData = { type: 'piece' };
@@ -1473,6 +1660,7 @@ function onResize() {
   camera.lookAt(0, 0, 0);
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
+  if (composer) composer.setSize(w, h);
 }
 
 function animate() {
@@ -1489,5 +1677,7 @@ function animate() {
     const sq = squareMeshes.find(s => s.userData.row === state.selected.row && s.userData.col === state.selected.col);
     if (sq) sq.material.emissiveIntensity = 0.4 + Math.sin(t * 2) * 0.25;
   }
-  renderer.render(scene, camera);
+  // Slowly rotate decorative ornaments
+  for (const d of animatedDecor) d.rotation.y += d.userData.spin;
+  composer.render();
 }
